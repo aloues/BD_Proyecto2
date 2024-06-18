@@ -5,6 +5,8 @@ import pickle
 import nltk
 import csv
 import shutil
+from collections import Counter, defaultdict, OrderedDict
+import numpy as np
 
 from nltk.stem.snowball import SnowballStemmer
 from nltk.corpus import stopwords
@@ -12,70 +14,73 @@ from nltk.corpus import stopwords
 nltk.download('punkt')
 nltk.download('stopwords')
 
+class LRUCache:
+  def __init__(self, capacity: int):
+    self.cache = OrderedDict()
+    self.capacity = capacity
+
+  def get(self, key):
+    if key not in self.cache:
+        return None
+    self.cache.move_to_end(key)
+    return self.cache[key]
+
+  def put(self, key, value):
+    if key in self.cache:
+        self.cache.move_to_end(key)
+    self.cache[key] = value
+    if len(self.cache) > self.capacity:
+        self.cache.popitem(last=False)
+
+class TextProcessor:
+  def __init__(self, lang):
+    self.stemmer = SnowballStemmer(lang)
+    self.stopwords = set(stopwords.words(lang))
+        
+  def preprocess(self, text):
+    tokens = re.findall(r'\b\w+\b', text.lower())
+    tokens = [word for word in tokens if word not in self.stopwords]
+    words = [self.stemmer.stem(word) for word in tokens]
+    return words
+  
+  def calculate_tf(self, doc):
+    word_counts = Counter(doc)
+    total_words = len(doc)
+    return {word: count / total_words for word, count in word_counts.items()}
+
+
 class InvertIndex:
   def __init__(self, index_file, lang):
     self.index_file = index_file
     self.index = {}
     self.idf = {}
     self.length = {}
-    self.stemmer = SnowballStemmer(lang)
-    self.stopwords = stopwords.words(lang)
+    self.processor = TextProcessor(lang)
 
-  def preprocesamiento(self, texto):
-      tokens = re.findall(r'\b\w+\b', texto.lower())
-      tokens = [word for word in tokens if word not in self.stopwords]
-      words = [self.stemmer.stem(word) for word in tokens]
-      return words
-
-  def calculate_tf(self, doc):
-    tf_dict = {}
-    for word in doc:
-      tf_dict[word] = tf_dict.get(word, 0) + 1
-
-    for word, count in tf_dict.items():
-      tf_dict[word] = count / len(doc)
-    return tf_dict
-      
   def calculate_idf(self, collection):
-    df_dict = {}
-    for doc in collection:
-      for word in doc:
-        df_dict[word] = df_dict.get(word, 0) + 1
-    
-    for word, count in df_dict.items():
-      self.idf[word] = math.log(len(collection) / count)
+    df_dict = Counter(word for doc in collection.values() for word in doc)
+    total_docs = len(collection)
+    self.idf = {word: math.log(total_docs / count) for word, count in df_dict.items()}
+
 
   def building(self, data):
-      # build the inverted index with the collection
-      processed_collection = {}
-      for doc_id, text in data.items():
-        words = self.preprocesamiento(text)
-        processed_collection[doc_id] = words
-  
-      for doc_id, words in processed_collection.items():  
-        # compute the tf
-        tf = self.calculate_tf(words)
+    processed_collection = {doc_id: self.processor.preprocess(text) for doc_id, text in data.items()}
 
-        for word, tf_value in tf.items():
-          if word not in self.index:
-            self.index[word] = []
-          self.index[word].append((doc_id, tf_value))
-        
-        # compute the length (norm)
-        self.length[doc_id] = math.sqrt(sum(tf_value**2 for tf_value in tf.values()))
+    for doc_id, words in processed_collection.items():
+      tf = self.processor.calculate_tf(words)
+      for word, tf_value in tf.items():
+        if word not in self.index:
+          self.index[word] = []
+        self.index[word].append((doc_id, tf_value))
+      self.length[doc_id] = np.linalg.norm(list(tf.values()))
+    self.calculate_idf(processed_collection)
+    self.index = dict(sorted(self.index.items()))
 
-      # compute the idf
-      self.calculate_idf(processed_collection.values())
-
-      # sort the index by term
-      self.index = dict(sorted(self.index.items()))
-
-      # store in disk
-      with open(self.index_file, 'wb') as f:
-        pickle.dump((self.index, self.idf, self.length), f)
+    with open(self.index_file, 'wb') as f:
+      pickle.dump((self.index, self.idf, self.length), f)
 
 class BSBI:
-  def __init__(self, initial_block_size, block_size, data_path, lang, lang_abbr, index_dir, rebuild=False):
+  def __init__(self, initial_block_size, block_size, data_path, lang, lang_abbr, index_dir, rebuild=False,  cache_size=10):
       self.initial_block_size = initial_block_size
       self.block_size = block_size
       self.index_dir = index_dir
@@ -83,8 +88,10 @@ class BSBI:
       self.lang = lang
       self.lang_abbr = lang_abbr
       self.block_filenames = []
-      self.stemmer = SnowballStemmer(lang)
-      self.stopwords = stopwords.words(lang)
+      self.processor = TextProcessor(lang)
+      self.index_keys = []
+      self.index_cache = {}
+      self.index_cache = LRUCache(cache_size) 
 
       if not os.path.exists(self.index_dir):
         os.makedirs(self.index_dir)
@@ -95,21 +102,6 @@ class BSBI:
           self.build_index()
         else:
           self.load_index()
-
-  def preprocesamiento(self, texto):
-      tokens = re.findall(r'\b\w+\b', texto.lower())
-      tokens = [word for word in tokens if word not in self.stopwords]
-      words = [self.stemmer.stem(word) for word in tokens]
-      return words
-
-  def calculate_tf(self, doc):
-    tf_dict = {}
-    for word in doc:
-      tf_dict[word] = tf_dict.get(word, 0) + 1
-
-    for word, count in tf_dict.items():
-      tf_dict[word] = count / len(doc)
-    return tf_dict
 
   def store_index(self, index_file, index, idf, length):
     with open(index_file, 'wb') as f:
@@ -144,7 +136,8 @@ class BSBI:
         invert_index.building(docs)
         self.block_filenames.append(block_index_file)
 
-      print("Local indexes built")
+    print("Local indexes built")
+
 
   def merge_two_sorted_arrays(self, arr1, arr2):
     merged_arr = []
@@ -164,19 +157,19 @@ class BSBI:
             i += 1
             j += 1
 
-    while i < len(arr1):
-        merged_arr.append(arr1[i])
-        i += 1
-
-    while j < len(arr2):
-        merged_arr.append(arr2[j])
-        j += 1
-
+    merged_arr.extend(arr1[i:])
+    merged_arr.extend(arr2[j:])
     return merged_arr
 
+
   def load_index_block(self, block_filename):
+    cached_block = self.index_cache.get(block_filename)
+    if cached_block is not None:
+      return cached_block
+  
     with open(block_filename, 'rb') as f:
       index, idf, length = pickle.load(f)
+      self.index_cache.put(block_filename, (index, idf, length))
     return index, idf, length
 
   def merge_two_rows(self, row1, row2, count=0, level=0):
@@ -198,7 +191,7 @@ class BSBI:
     merged_files = []
     current_page_index = {}
     current_page_idf = {}
-    merged_length = {}
+    merged_length = defaultdict(float)
     current_page_size = 0
 
     for doc_id in set(length1.keys()).union(length2.keys()):
@@ -297,56 +290,45 @@ class BSBI:
     self.build_local_indexes()
     self.merge_blocks()
 
-    # Print the first key of each block
-    for block_file in self.block_filenames[0]:
-      with open(block_file, 'rb') as f:
-        index, idf, length = pickle.load(f)
-        keys = list(index.keys())
-
   def retrieval(self, query, k=10):
-    def binary_search_term(blocks, term):
-      left, right = 0, len(blocks) - 1
-
+    def binary_search_term(block_keys, blocks, term):
+      left, right = 0, len(block_keys) // 2 - 1
       while left <= right:
         mid = (left + right) // 2
-        index_mid, idf_mid, length = self.load_index_block(blocks[mid])
-        
-        terms_mid = list(index_mid.keys())
-        
-        if terms_mid[0] <= term <= terms_mid[-1]:
-            if term in index_mid:
-                tf_values = index_mid[term]
-                idf_value = idf_mid.get(term, 0)
-                return tf_values, idf_value, length
-            else:
-                return None
-        
-        if term < terms_mid[0]:
+        f_key, l_key = block_keys[2 * mid], block_keys[2 * mid + 1]
+        if f_key <= term <= l_key:
+          index_mid, idf_mid, length = self.load_index_block(blocks[mid])
+          if term in index_mid:
+            tf_values = index_mid[term]
+            idf_value = idf_mid.get(term, 0)
+            return tf_values, idf_value, length
+          else:
+              return None, None, None
+        if term < f_key:
             right = mid - 1
         else:
             left = mid + 1
-      return None
-    
-    query_words = self.preprocesamiento(query)
+      return None, None, None
+
+    query_words = self.processor.preprocess(query)
 
     words_tf = {}
-    words_idf = {}
+    words_idf = defaultdict(float)
     length = {}
 
     for word in query_words:
-      tf_values, idf_value, length = binary_search_term(self.block_filenames[0], word)
-      if tf_values:
+      tf_values, idf_value, local_length = binary_search_term(self.index_keys, self.block_filenames[0], word)
+      if tf_values is not None:
         words_tf[word] = tf_values
         words_idf[word] = idf_value
+        
+        if not length:
+          length = local_length
 
-    query_tf = self.calculate_tf(query_words)
-    query_tfidf = {}
+    query_tf = self.processor.calculate_tf(query_words)
+    query_tfidf = {word: tf * words_idf.get(word, 0) for word, tf in query_tf.items()}
 
-    for word, tf in query_tf.items():
-      idf = words_idf.get(word, 0)
-      query_tfidf[word] = tf * idf
-
-    scores = {}
+    scores = defaultdict(float)
 
     for word, tfidf in query_tfidf.items():
       if word in words_tf:
@@ -365,12 +347,24 @@ class BSBI:
   def get_ordered_block_filenames(self, final_dir):
     block_filenames = [os.path.join(final_dir, f) for f in os.listdir(final_dir) if f.startswith('block_')]
     block_filenames.sort(key=lambda f: int(os.path.basename(f).split('_')[-1].split('.')[0]))
+
     return block_filenames
   
+
+  def add_index_keys(self, block_filename):
+    with open(block_filename, 'rb') as f:
+      index, _, _ = pickle.load(f)
+      keys = list(index.keys())
+      self.index_keys.extend([keys[0], keys[-1]])
+
   def load_index(self):
     final_dir = os.path.join(self.index_dir, 'final')
     self.block_filenames = [self.get_ordered_block_filenames(final_dir)]
+
+    for block_file in self.block_filenames[0]:
+      self.add_index_keys(block_file)
     print("Index loaded")
+
 
 if __name__ == '__main__':
   bsbi = BSBI(100, 1000, './Data/spotify_songs.csv', 'spanish', 'es', 'bsbi_index')

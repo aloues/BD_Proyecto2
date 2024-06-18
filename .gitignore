@@ -186,3 +186,6 @@ poetry.toml
 
 # LSP config files
 pyrightconfig.json
+
+bsbi_index_en/
+bsbi_index_es/

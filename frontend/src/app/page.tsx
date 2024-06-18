@@ -23,7 +23,7 @@ export default function Home() {
               {
                 loading ? 'Cargando...' :
                 songs.length === 0 ? 'No se encontraron canciones' :
-                `Se encontraron ${songs.length} canciones (${Math.round(executionTime)}ms)`
+                `Se encontraron ${songs.length} canciones (${Math.round(executionTime * 100) / 100}ms)`
               }
             </Text>
 
