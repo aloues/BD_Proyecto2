@@ -252,18 +252,6 @@ class LRUCache:
 
 - **Explicación**: La caché LRU (Least Recently Used) se implementa usando `OrderedDict`. Almacena un número limitado de bloques de índice y elimina el menos recientemente utilizado cuando se alcanza la capacidad máxima. Esto reduce el número de lecturas desde el disco, mejorando la velocidad de las consultas.
 
-### Ejecución Óptima de Consultas Aplicando Similitud de Coseno
-
-### Construcción del Índice Invertido en PostgreSQL/MongoDB
-
-## Backend: Índice Multidimensional (siguiente entrega)
-
-### Técnica de Indexación de las Librerías Utilizadas (siguiente entrega)
-
-### KNN Search y Range Search (siguiente entrega)
-
-### Análisis de la Maldición de la Dimensionalidad y Cómo Mitigarlo (siguiente entrega)
-
 ### API
 La API permite realizar búsquedas por letras de canciones usando el índice y obtener información detallada a través de la API de Spotify.
 
@@ -326,6 +314,16 @@ Permite realizar una búsqueda de canciones.
 
 5. **Respuesta**:
    - Retorna un objeto JSON con la lista de canciones y el tiempo de ejecución de la búsqueda.
+
+### Construcción del Índice Invertido en PostgreSQL/MongoDB
+
+## Backend: Índice Multidimensional (siguiente entrega)
+
+### Técnica de Indexación de las Librerías Utilizadas (siguiente entrega)
+
+### KNN Search y Range Search (siguiente entrega)
+
+### Análisis de la Maldición de la Dimensionalidad y Cómo Mitigarlo (siguiente entrega)
 
 ## Frontend
 Para el diseño del Frontend optamos por una página web con un diseño minimalista y sencillo para el usuario. Este fue construido usando Next.js y Typescript. El componente principal es la barra de búsqueda, donde se ingresa la letra de la canción. Además, se pueden modificar diferentes parámetros como el Top K resultados, el lenguaje y tipo de índice.
