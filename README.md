@@ -282,10 +282,10 @@ Permite realizar una búsqueda de canciones.
 - **Cuerpo de la Solicitud**:
   ```json
   {
-    "query": "string",
-    "k": 10,
-    "language": "spanish",
-    "use_postgres": false 
+    "query": "string",  // La consulta de búsqueda.
+    "k": 10,            // Número de resultados a retornar. Valor por defecto: 10.
+    "language": "spanish", // Idioma de las letras a buscar ("spanish" o "english"). Valor por defecto: "spanish".
+    "use_postgres": false  // Indica si se debe usar PostgreSQL para la búsqueda. Valor por defecto: false.
   }
   ```
 
@@ -295,16 +295,16 @@ Permite realizar una búsqueda de canciones.
   {
     "songs": [
       {
-        "id": "string",
-        "score": float,
-        "name": "string",
-        "artists": ["string"],  
-        "album": "string", 
-        "preview_url": "string",
-        "album_image": "string" 
+        "id": "string",          // ID de la canción en Spotify.
+        "score": "float",          // Puntuación de relevancia de la canción.
+        "name": "string",        // Nombre de la canción.
+        "artists": ["string"],   // Lista de nombres de los artistas.
+        "album": "string",       // Nombre del álbum.
+        "preview_url": "string", // URL de previsualización de la canción (si está disponible).
+        "album_image": "string"  // URL de la imagen del álbum.
       }
     ],
-    "executionTime": float 
+    "executionTime": "float"  // Tiempo de ejecución de la búsqueda en milisegundos.
   }
   ```
 
