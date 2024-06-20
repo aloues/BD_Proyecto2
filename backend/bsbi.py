@@ -364,19 +364,3 @@ class BSBI:
     for block_file in self.block_filenames[0]:
       self.add_index_keys(block_file)
     print("Index loaded")
-
-
-if __name__ == '__main__':
-  bsbi = BSBI(100, 1000, './Data/spotify_songs.csv', 'spanish', 'es', 'bsbi_index')
-  # bsbi.build_index()
-  # print("Index built successfully")
-
-  bsbi.load_index()
-  query = "Despacito Quiero respirar tu cuello despacito"
-  result = bsbi.retrieval(query)
-
-  print("Query results:")
-  for doc_id, score in result:
-    print(f"Doc ID: {doc_id}, Score: {score}")
-
-  print("Query completed")
