@@ -3,9 +3,15 @@
 
 ### Objetivo del Proyecto
 
+El objetivo de este proyecto es implementar un sistema de recuperación de información utilizando un índice invertido y comparar su rendimiento con PostgreSQL. Se evaluará el tiempo de consulta en diferentes tamaños de datos y se generarán gráficos para visualizar los resultados.
+
 ### Descripción del Dominio de Datos y la Importancia de Aplicar Indexación
 
+El dominio de datos consiste en letras de canciones de Spotify. La indexación es crucial para mejorar la eficiencia de las consultas textuales en grandes volúmenes de datos, permitiendo recuperar resultados relevantes de manera rápida.
+
 ## Backend: Índice Invertido
+
+### Implementación del Índice Invertido
 
 ### Construcción del Índice Invertido en Memoria Secundaria
 
@@ -164,7 +170,7 @@ def merge_blocks(self):
     self.block_filenames = [[f'{final_dir}/{os.path.split(filename)[-1]}' for filename in filenames[0]]]
 ```
 
-- **Explicación**: Este método fusiona pares de bloques de índice hasta que solo queda un bloque final. Los bloques se combinan nivel por nivel, y los bloques fusionados se almacenan en nuevos archivos. El resultado final es un único bloque de índice almacenado en el directorio `final`.
+- **Explicación**: Este método fusiona pares de bloques de índice hasta que solo queda un bloque final. Los bloques se combinan nivel por nivel, y los bloques fusionados se almacenan en nuevos archivos. El índice final son los bloques del último nivel almacenado en el directorio `final`.
 
 ##### Ejecución Óptima de Consultas aplicando Similitud de Coseno
 
@@ -316,6 +322,97 @@ Permite realizar una búsqueda de canciones.
    - Retorna un objeto JSON con la lista de canciones y el tiempo de ejecución de la búsqueda.
 
 ### Construcción del Índice Invertido en PostgreSQL/MongoDB
+
+### Configuración y Creación de la Tabla `songs`
+
+En este proyecto, hemos creado una tabla en PostgreSQL para almacenar información sobre canciones de Spotify. La tabla incluye información detallada sobre cada canción, como el nombre, artista, letra, popularidad, y características acústicas.
+
+#### Código para la Creación de la Tabla
+
+El siguiente fragmento de código crea la tabla `songs` en la base de datos PostgreSQL:
+
+```python
+def create_and_populate_table():
+    conn = connect_to_postgres()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS songs (
+            track_id TEXT PRIMARY KEY,
+            track_name TEXT,
+            track_artist TEXT,
+            lyrics TEXT,
+            track_popularity INTEGER,
+            track_album_id TEXT,
+            track_album_name TEXT,
+            track_album_release_date DATE,
+            playlist_name TEXT,
+            playlist_id TEXT,
+            playlist_genre TEXT,
+            playlist_subgenre TEXT,
+            danceability FLOAT,
+            energy FLOAT,
+            key INTEGER,
+            loudness FLOAT,
+            mode INTEGER,
+            speechiness FLOAT,
+            acousticness FLOAT,
+            instrumentalness FLOAT,
+            liveness FLOAT,
+            valence FLOAT,
+            tempo FLOAT,
+            duration_ms INTEGER,
+            language TEXT
+        );
+        """)
+        
+        with open(data_path, 'r') as f:
+            reader = csv.reader(f)
+            next(reader)  # Omitir la cabecera
+            for row in reader:
+                cursor.execute("""
+                INSERT INTO songs (track_id, track_name, track_artist, lyrics, track_popularity, track_album_id, track_album_name, 
+                track_album_release_date, playlist_name, playlist_id, playlist_genre, playlist_subgenre, danceability, energy, key, loudness, 
+                mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo, duration_ms, language) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, row)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+```
+Esta función crea una tabla en una base de datos PostgreSQL y la popula con datos de un archivo CSV.
+
+Este código realiza lo siguiente:
+
+1. Conecta a la base de datos PostgreSQL.
+2. Crea la tabla songs si no existe ya.
+3. Inserta datos desde un archivo CSV (spotify_songs.csv) en la tabla.
+
+### Creación de Índices en PostgreSQL
+Para optimizar las consultas textuales, se han creado índices en las columnas track_name, track_artist, y lyrics.
+
+#### Código para la Creación de Índices
+El siguiente código crea los índices necesarios en la tabla songs:
+
+```python
+def create_indexes():
+    conn = connect_to_postgres()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_track_name ON songs (track_name);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_track_artist ON songs (track_artist);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics ON songs USING GIN (lyrics gin_trgm_ops);")
+        conn.commit()
+        cursor.close()
+        conn.close()
+```
+
+Aqui se conecta a la base de datos PostgreSQL, crea un índice en la columna track_name para acelerar las búsquedas por nombre de canción.
+Luego, crea un índice en la columna track_artist para acelerar las búsquedas por nombre de artista y termina creando un índice GIN en la columna lyrics para optimizar las búsquedas textuales completas.
+
+### Configuración de la API para Búsquedas
+La API está configurada utilizando FastAPI para manejar búsquedas en la tabla songs de PostgreSQL y comparar su rendimiento con un índice invertido personalizado (BSBI). La configuración incluye la creación de la tabla songs, la inserción de datos desde un archivo CSV, y la creación de índices en PostgreSQL para optimizar las consultas textuales. La API permite seleccionar entre usar PostgreSQL o los índices invertidos personalizados para realizar las búsquedas, retornando los resultados junto con el tiempo de ejecución de la consulta.
 
 ## Backend: Índice Multidimensional (siguiente entrega)
 

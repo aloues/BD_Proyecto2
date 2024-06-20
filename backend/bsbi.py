@@ -112,7 +112,7 @@ class BSBI:
     block_num = 0
     docs = {}
 
-    with open(self.data_path, 'r') as f:
+    with open(self.data_path, 'r', encoding='utf-8') as f:
       reader_obj = csv.reader(f) 
 
       for row in reader_obj:
@@ -262,8 +262,8 @@ class BSBI:
     level = 0
 
     while len(filenames) > 1:
-      print(f"Number of blocks: {len(filenames)}")
-      print(filenames)
+      # print(f"Number of blocks: {len(filenames)}")
+      # print(filenames)
 
       new_level = []
       
