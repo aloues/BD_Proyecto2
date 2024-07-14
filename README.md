@@ -414,13 +414,89 @@ Luego, crea un índice en la columna track_artist para acelerar las búsquedas p
 ### Configuración de la API para Búsquedas
 La API está configurada utilizando FastAPI para manejar búsquedas en la tabla songs de PostgreSQL y comparar su rendimiento con un índice invertido personalizado (BSBI). La configuración incluye la creación de la tabla songs, la inserción de datos desde un archivo CSV, y la creación de índices en PostgreSQL para optimizar las consultas textuales. La API permite seleccionar entre usar PostgreSQL o los índices invertidos personalizados para realizar las búsquedas, retornando los resultados junto con el tiempo de ejecución de la consulta.
 
-## Backend: Índice Multidimensional (siguiente entrega)
+## Backend: Índice Multidimensional
 
-### Técnica de Indexación de las Librerías Utilizadas (siguiente entrega)
+En esta sección se explicarán los métodos y técnicas utilizados para la creación de un índice multidimensional aplicado a la búsqueda y gestión de imágenes en la base de datos.
 
-### KNN Search y Range Search (siguiente entrega)
+### Técnica de Indexación de las Librerías Utilizadas (mejorar)
 
-### Análisis de la Maldición de la Dimensionalidad y Cómo Mitigarlo (siguiente entrega)
+Para la indexación de las imágenes en nuestra base de datos, hemos utilizado técnicas de procesamiento de imágenes y de reducción de dimensionalidad. Las librerías utilizadas incluyen:
+
+- **OpenCV**: Para la preprocesamiento y extracción de características de las imágenes.
+- **NumPy**: Para operaciones matemáticas y de manipulación de arrays.
+- **scikit-learn**: Para la implementación de PCA (Análisis de Componentes Principales) para la reducción de dimensionalidad.
+- **Faiss**: Librería de Facebook AI Research para la indexación y búsqueda eficiente en grandes conjuntos de datos de vectores.
+
+El flujo de trabajo para la indexación incluye la carga de las imágenes, el preprocesamiento (como redimensionamiento y normalización), la extracción de características (por ejemplo, utilizando técnicas de histograma de colores o descriptores de características como SIFT o SURF), y la reducción de dimensionalidad utilizando PCA antes de crear el índice con Faiss.
+
+### KNN Search y Range Search
+
+Para la búsqueda de imágenes similares en la base de datos, hemos implementado dos técnicas principales: KNN (K-Nearest Neighbors) Search y Range Search.
+
+#### KNN Search (se puede mejorar y adjuntar codigo)
+
+El KNN Search (búsqueda de los k vecinos más cercanos) es una técnica que permite encontrar las k imágenes más similares a una imagen de consulta en términos de distancia en un espacio de características. En nuestro caso, las características de las imágenes son representadas como vectores, y la búsqueda se realiza en un espacio de características de menor dimensión obtenido después de aplicar PCA.
+
+Pasos del KNN Search:
+
+1. **Extracción de Características**: Se extraen las características de la imagen de consulta.
+2. **Reducción de Dimensionalidad**: Se aplica PCA a las características de la imagen de consulta para reducir su dimensionalidad.
+3. **Búsqueda**: Se utiliza Faiss para buscar las k imágenes más cercanas en el índice preconstruido.
+
+Faiss permite realizar esta búsqueda de manera eficiente incluso en grandes conjuntos de datos, utilizando estructuras de datos optimizadas y técnicas de búsqueda aproximada.
+
+#### Range Search (se puede mejorar y adjuntar codigo)
+
+El Range Search (búsqueda por rango) es una técnica que permite encontrar todas las imágenes en la base de datos que se encuentran dentro de una cierta distancia de la imagen de consulta. Esta técnica es útil cuando se desea recuperar todas las imágenes que son suficientemente similares a la imagen de consulta, en lugar de un número fijo de resultados.
+
+Pasos del Range Search:
+
+1. **Extracción de Características**: Similar al KNN Search, se extraen las características de la imagen de consulta.
+2. **Reducción de Dimensionalidad**: Se aplica PCA a las características de la imagen de consulta.
+3. **Búsqueda**: Se utiliza Faiss para buscar todas las imágenes que se encuentran dentro de un radio especificado alrededor de la imagen de consulta en el espacio de características.
+
+Faiss permite especificar un radio de búsqueda y devuelve todas las imágenes cuyo vector de características se encuentra dentro de ese radio en el espacio reducido.
+
+### Análisis de la Maldición de la Dimensionalidad y Cómo Mitigarlo
+
+La maldición de la dimensionalidad se refiere a diversos fenómenos que ocurren cuando se analiza y organiza datos en espacios de alta dimensión. En el contexto de la búsqueda y la indexación de imágenes, estos fenómenos pueden afectar negativamente la eficiencia y la precisión de las búsquedas.
+
+#### Problemas Causados por la Maldición de la Dimensionalidad
+
+1. **Distancias Menos Discriminativas**: A medida que aumenta la dimensionalidad del espacio de características, las distancias entre puntos (imágenes) se vuelven menos discriminativas, lo que dificulta la distinción entre imágenes similares y no similares.
+2. **Mayor Complejidad Computacional**: El tiempo y los recursos necesarios para calcular distancias y realizar búsquedas aumentan exponencialmente con la dimensionalidad.
+3. **Esparcimiento de Datos**: Los datos tienden a dispersarse en espacios de alta dimensión, lo que reduce la densidad de los datos y dificulta la formación de clusters significativos.
+
+#### Mitigación de la Maldición de la Dimensionalidad
+
+La maldición de la dimensionalidad se refiere a diversos fenómenos que ocurren cuando se analiza y organiza datos en espacios de alta dimensión. En el contexto de la búsqueda y la indexación de imágenes, estos fenómenos pueden afectar negativamente la eficiencia y la precisión de las búsquedas.
+
+#### Problemas Causados por la Maldición de la Dimensionalidad
+
+1. **Distancias Menos Discriminativas**: A medida que aumenta la dimensionalidad del espacio de características, las distancias entre puntos (imágenes) se vuelven menos discriminativas, lo que dificulta la distinción entre imágenes similares y no similares.
+2. **Mayor Complejidad Computacional**: El tiempo y los recursos necesarios para calcular distancias y realizar búsquedas aumentan exponencialmente con la dimensionalidad.
+3. **Esparcimiento de Datos**: Los datos tienden a dispersarse en espacios de alta dimensión, lo que reduce la densidad de los datos y dificulta la formación de clusters significativos.
+
+#### Solución frente a la Maldición de la Dimensionalidad
+
+Para mitigar los efectos de la maldición de la dimensionalidad, hemos utilizado PCA (Análisis de Componentes Principales). PCA es una técnica de reducción de dimensionalidad que transforma el espacio original de características en un espacio de menor dimensión, preservando la mayor cantidad posible de varianza de los datos originales. 
+
+El proceso de PCA incluye los siguientes pasos:
+
+1. **Normalización de los Datos**: Las características de las imágenes son escaladas para que tengan media cero y varianza unitaria, asegurando que cada característica contribuya equitativamente al análisis.
+2. **Cálculo de la Matriz de Covarianza**: Se calcula la matriz de covarianza de los datos normalizados para identificar la correlación entre diferentes características.
+3. **Cálculo de los Valores y Vectores Propios**: Se calculan los valores y vectores propios de la matriz de covarianza. Los vectores propios representan las direcciones principales (componentes principales) en las que los datos varían, y los valores propios indican la cantidad de varianza en esas direcciones.
+4. **Selección de Componentes Principales**: Se seleccionan los componentes principales con los valores propios más altos, reduciendo así la dimensionalidad mientras se preserva la mayor cantidad posible de información original.
+5. **Transformación de los Datos**: Los datos originales se proyectan en el nuevo espacio de componentes principales, obteniendo un conjunto de características de menor dimensión.
+
+##### Beneficios de Usar PCA para Imágenes
+
+1. **Preservación de Información Esencial**: PCA permite reducir la dimensionalidad de las características de las imágenes mientras se preserva la mayor cantidad de varianza (información) posible. Esto es crucial para asegurar que las características discriminativas de las imágenes se mantengan intactas.
+2. **Mejor Discriminación de Distancias**: Con una menor dimensionalidad, las distancias entre las características de las imágenes se vuelven más representativas de sus similitudes reales, mejorando la precisión de las búsquedas KNN y Range Search.
+3. **Eficiencia Computacional**: Reducir la dimensionalidad disminuye el tiempo y los recursos necesarios para calcular distancias y realizar búsquedas, lo cual es especialmente beneficioso cuando se trabaja con grandes conjuntos de datos de imágenes.
+4. **Reducción del Ruido**: Al enfocarse en los componentes principales, PCA ayuda a eliminar el ruido y las características redundantes de los datos, mejorando la calidad de las características utilizadas para la búsqueda.
+
+En comparación con otras técnicas de reducción de dimensionalidad, como el t-SNE o UMAP, PCA es lineal y relativamente sencilla de implementar, lo cual la hace más adecuada para aplicaciones en tiempo real y con grandes volúmenes de datos. Además, su capacidad para preservar la varianza y mejorar la discriminación de distancias la hace especialmente útil en el contexto de la indexación y búsqueda de imágenes, donde la precisión y la eficiencia son cruciales.
 
 ## Frontend
 Para el diseño del Frontend optamos por una página web con un diseño minimalista y sencillo para el usuario. Este fue construido usando Next.js y Typescript. El componente principal es la barra de búsqueda, donde se ingresa la letra de la canción. Además, se pueden modificar diferentes parámetros como el Top K resultados, el lenguaje y tipo de índice.
