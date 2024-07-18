@@ -1,19 +1,31 @@
-import uvicorn
-from fastapi import FastAPI, Query
+import base64
+import json
+import time
+
+import cv2
+import numpy as np
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import time
-import psycopg2
-import csv
 
 from bsbi import BSBI
+from highD import HighD
+from knnRTree import KnnRTree
+from knnSequential import KnnSequential
 from spotify import get_token, get_track_info, simplify_track_info
 
-class SearchQuery(BaseModel):
+
+class SongsSearchQuery(BaseModel):
     query: str
     k: int = 10
     language: str = "spanish"
     use_postgres: bool = False
+
+class ImagesSearchQuery(BaseModel):
+    query: str
+    k: int = 8
+    n: int = 32000
+    model: str
 
 app = FastAPI()
 
@@ -32,137 +44,132 @@ app.add_middleware(
 token = get_token()
 
 # Initialize BSBI index
-initial_block_size = 100  # Number of documents for each initial local index
+initial_block_size = 100 # Number of documents for each initial local index
 block_size = 1000  # Number of documents for each block
-data_path = './Data/spotify_songs.csv'
+data_path = './Data/spotify-dataset/spotify_songs.csv'
 
-index_dir_es = 'bsbi_index_es'
-index_dir_en = 'bsbi_index_en'
-bsbi_es = BSBI(initial_block_size, block_size, data_path, 'spanish', 'es', index_dir_es)
-bsbi_en = BSBI(initial_block_size, block_size, data_path, 'english', 'en', index_dir_en)
+index_dir = 'bsbi_index_es'
+language = 'spanish'
+lang_code = 'es'
 
-# Función de conexión a PostgreSQL
-def connect_to_postgres():
-    try:
-        conn = psycopg2.connect(
-            dbname="spotify_db",
-            user="postgres",
-            password="password",
-            host="localhost"
-        )
-        print("Conexión exitosa a PostgreSQL")
-        return conn
-    except Exception as e:
-        print(f"Error al conectar a PostgreSQL: {e}")
-        return None
+bsbi_es = BSBI(initial_block_size, block_size, data_path, language, lang_code, index_dir)
 
-# conn = connect_to_postgres()
+index_dir = 'bsbi_index_en'
+language = 'english'
+lang_code = 'en'
 
-# Crear tabla y poblarla
-def create_and_populate_table(conn):
-    conn = connect_to_postgres()
-    if conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS songs (
-            track_id TEXT PRIMARY KEY,
-            track_name TEXT,
-            track_artist TEXT,
-            lyrics TEXT,
-            track_popularity INTEGER,
-            track_album_id TEXT,
-            track_album_name TEXT,
-            track_album_release_date DATE,
-            playlist_name TEXT,
-            playlist_id TEXT,
-            playlist_genre TEXT,
-            playlist_subgenre TEXT,
-            danceability FLOAT,
-            energy FLOAT,
-            key INTEGER,
-            loudness FLOAT,
-            mode INTEGER,
-            speechiness FLOAT,
-            acousticness FLOAT,
-            instrumentalness FLOAT,
-            liveness FLOAT,
-            valence FLOAT,
-            tempo FLOAT,
-            duration_ms INTEGER,
-            language TEXT
-        );
-        """)
-        
-        with open(data_path, 'r') as f:
-            reader = csv.reader(f)
-            next(reader)  # Omitir la cabecera
-            for row in reader:
-                cursor.execute("""
-                INSERT INTO songs (track_id, track_name, track_artist, lyrics, track_popularity, track_album_id, track_album_name, 
-                track_album_release_date, playlist_name, playlist_id, playlist_genre, playlist_subgenre, danceability, energy, key, loudness, 
-                mode, speechiness, acousticness, instrumentalness, liveness, valence, tempo, duration_ms, language) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, row)
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
+bsbi_en = BSBI(initial_block_size, block_size, data_path, language, lang_code, index_dir)
 
-# Crear índices en PostgreSQL
-def create_indexes(conn):
-    if conn:
-        cursor = conn.cursor()
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_track_name ON songs (track_name);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_track_artist ON songs (track_artist);")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics ON songs USING GIN (lyrics gin_trgm_ops);")
-        conn.commit()
-        cursor.close()
-        conn.close()
+def measure_time(func):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        return (result, end - start)
+    return wrapper
 
-# create_and_populate_table(conn)
-# create_indexes(conn)
+@app.post("/songs/search")
+def search(query: SongsSearchQuery):
+  execution_time_ms = 0
 
-# Función para realizar una consulta en PostgreSQL
-def query_postgres(conn, query):
-    cursor = conn.cursor()
-    cursor.execute(query)
-    results = cursor.fetchall()
-    cursor.close()
-    return results
-
-@app.post("/search")
-def search(query: SearchQuery):
-    execution_time_ms = 0
-    results = []
-
-    if query.use_postgres:
-        # if conn:
-        #     sql_query = "SELECT * FROM songs WHERE track_name ILIKE %s"
-        #     start_time = time.time()
-        #     results = query_postgres(conn, (f"%{query.query}%",))
-        #     execution_time_ms = (time.time() - start_time) * 1000
-        #     conn.close()
-        pass
+  if query.use_postgres:
+    if query.language == "spanish":  
+      pass
     else:
-        if query.language == "spanish":
-            start_time = time.time()
-            results = bsbi_es.retrieval(query.query, query.k)
-            execution_time_ms = (time.time() - start_time) * 1000
-        else:
-            start_time = time.time()
-            results = bsbi_en.retrieval(query.query, query.k)
-            execution_time_ms = (time.time() - start_time) * 1000
+      pass
+  else:
+    if query.language == "spanish":  
+      (results, execution_time_ms) = measure_time(bsbi_es.retrieval)(query.query, query.k)
+    else:
+      (results, execution_time_ms) = measure_time(bsbi_en.retrieval)(query.query, query.k)
 
-    songs = []
+  songs = []
 
-    for track_id, score in results:
-        track_info = get_track_info(token, track_id)
-        simplified_info = simplify_track_info(track_info)
-        simplified_info['id'] = track_id
-        simplified_info['score'] = score
-        songs.append(simplified_info)
+  for track_id, score in results:
+    track_info = get_track_info(token, track_id)
+    simplified_info = simplify_track_info(track_info)
+    simplified_info['id'] = track_id
+    simplified_info['score'] = score
+    songs.append(simplified_info)
+  
+  return {"songs": songs, "executionTime": execution_time_ms}
 
-    return {"songs": songs, "executionTime": execution_time_ms}
+images_dataset_path = './Data/fashion-dataset'
+image_size = (64, 64)
+n = [1000, 2000, 4000, 8000, 16000, 32000, 44000]
+n_components = [8, 16, 32]
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+models = {
+  "knnSequential": {},
+  "knnRTree": {},
+  "knnDHigh": {8: {}, 16: {}, 32: {}}
+}
+
+for size in n:
+  models["knnSequential"][size] = KnnSequential(images_dataset_path, image_size, dataset_size=size)
+
+  rTree_index_path = f'./rtree_index/rtree_index_{size}'
+  models["knnRTree"][size] = KnnRTree(rTree_index_path, images_dataset_path, image_size, dataset_size=size)
+
+  for n_comp in n_components:
+    highD_index_path = f'./highD_index/highD_index_{n_comp}_{size}'
+    pca_path = f'./highD_index/pca_{n_comp}_{size}.pkl'
+    models["knnDHigh"][n_comp][size] = HighD(highD_index_path, images_dataset_path, image_size, pca_path, n_comp, dataset_size=size)
+
+@app.post("/images/search")
+def search(query: ImagesSearchQuery):
+  def readb64(uri):
+   encoded_data = uri.split(',')[1]
+   nparr = np.fromstring(base64.b64decode(encoded_data), np.uint8)
+   image = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+   image = cv2.resize(image, image_size)
+   return image
+  
+  execution_time_ms = 0
+  image = readb64(query.query)
+
+  if query.model == "knnSequential":
+    (results, execution_time_ms) = measure_time(models["knnSequential"][query.n].query)(image, k=query.k)
+  elif query.model == "knnRTree":
+    (results, execution_time_ms) = measure_time(models["knnRTree"][query.n].query)(image, k=query.k)
+  elif query.model == "highD32":
+    (results, execution_time_ms) = measure_time(models["knnDHigh"][32][query.n].query)(image, k=query.k)
+  elif query.model == "highD8":
+    (results, execution_time_ms) = measure_time(models["knnDHigh"][8][query.n].query)(image, k=query.k)
+  else:
+    (results, execution_time_ms) = measure_time(models["knnDHigh"][16][query.n].query)(image, k=query.k)
+
+
+  # Read image metadata
+  # Extract cod, name, price and image url
+  # Return a list of dictionaries with the image metadata
+  images_results = []
+
+  for i, (image_id, score) in enumerate(results):
+    try: 
+      with open(f'{images_dataset_path}/styles/{image_id}.json', 'r') as file:
+        image_style = json.load(file)
+        data = image_style['data']
+        images_results.append({
+          "id": data['id'],
+          "name": data['productDisplayName'],
+          "price": data['price'],
+          "url": data['styleImages']['search']['resolutions']['125X161Xmini'],
+          "score": score,
+          "variantName": data['variantName'],
+          "brandName": data['brandName'],
+        })
+
+      file.close()
+    except:
+      images_results.append({
+        "id": image_id,
+        "name": f'Image {image_id}',
+        "price": 0,
+        "url": "https://www.eclosio.ong/wp-content/uploads/2018/08/default.png",
+        "score": score,
+        "variantName": "Unknown",
+        "brandName": "Unknown",
+      })
+
+  return {"images": images_results, "executionTime": execution_time_ms}
