@@ -5,7 +5,7 @@ import { Box, HStack, IconButton, Input, InputGroup, InputRightElement, NumberDe
 import React, { useContext } from "react";
 import { FaSearch } from "react-icons/fa";
 
-export function SearchBar() {
+export function SongsSearchBar() {
   const { search } = useContext(SongsContext);
 
   const [value, setValue] = React.useState('');

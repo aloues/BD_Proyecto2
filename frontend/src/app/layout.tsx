@@ -4,8 +4,7 @@ import { Providers } from "./providers";
 import { Box } from "@chakra-ui/react";
 
 export const metadata: Metadata = {
-  title: "Spotify 2.0",
-  description: "Listen to your favorite music on Spotify 2.0",
+  title: "Proyecto Final - BDII"
 };
 
 export default function RootLayout({

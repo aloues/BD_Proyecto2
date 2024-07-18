@@ -1,8 +1,7 @@
 import { Box, VStack } from "@chakra-ui/react";
-import { SearchBar } from "./SearchBar";
-import Image from "next/image";
+import { Image } from '@chakra-ui/react'
 
-export function NavBar() {
+export function NavBar({image, children} : {image: string, children: React.ReactNode}) {
   return (
     <nav>
       <Box 
@@ -12,9 +11,9 @@ export function NavBar() {
       ></Box>
 
       <VStack px={4} mt="-133.5px">
-        <Image src='/spotify-white-logo.png' alt='Spotify Logo' width={212.5} height={63.5} />
+        <Image src={image} alt='Logo' height={20} />
         <Box mt={8} w="100%" maxW="600px">
-          <SearchBar />
+          {children}
         </Box>
       </VStack>
     </nav>

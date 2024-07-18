@@ -1,39 +1,41 @@
-"use client"
+'use client';
 
-import { NavBar } from "@/components/Navbar";
-import { SongCard } from "@/components/SongCard";
-import { SongsContext } from "@/context/SongsContext";
-import { Spinner, Text, VStack } from "@chakra-ui/react";
-import { useContext } from "react";
+import { ROUTES } from "@/constants/router";
+import { Button, Card, CardBody, CardHeader, Center, Heading, Text, VStack } from "@chakra-ui/react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  const { result, loading } = useContext(SongsContext);
-  const { songs, executionTime } = result;
+  const router = useRouter();
+
+  const navigate = (route: ROUTES) => {
+    router.push(route);
+  }
 
   return (
     <>
-      <NavBar />
-      <main>
-        <VStack w='100%' maxW='600px' mt={8} mx='auto' px={4}>
-          <VStack w='100%' align='flex-start' pb={16}>
-            <Text fontSize="2xl" fontWeight="bold" color='textColor'>
-              Top Songs
-            </Text>
-            <Text fontSize="lg" fontWeight="bold" color='textColor'>
-              {
-                loading ? 'Cargando...' :
-                songs.length === 0 ? 'No se encontraron canciones' :
-                `Se encontraron ${songs.length} canciones (${Math.round(executionTime * 100) / 100}ms)`
-              }
-            </Text>
+      <Center h="100vh">
+        <Card p={8} w="100%" maxW="600px" borderRadius='xl' style={{ "boxShadow": "#1db954 0px 8px 24px" }}>
+          <CardHeader>
+            <Heading as="h1" size="xl" textAlign="center">
+              Proyecto Final - BDII 🗃️
+            </Heading>
+          </CardHeader>
+          <CardBody>
+            <VStack align='flex-start' spacing={4}>
+              <Text fontSize="lg" textAlign="center">
+                Selecciona a que sección deseas ir:
+              </Text>
 
-            {
-              loading ? <Spinner size="xl" color="primaryColor" /> :
-              songs.map((song) => <SongCard key={song.id} song={song} />)
-            }
-          </VStack>
-        </VStack>
-      </main>
+              <Button w ='full' onClick={() => navigate(ROUTES.SONGS)} colorScheme="green" size="lg">
+                Índice Invertido Textual - Spotify
+              </Button>
+              <Button w ='full' onClick={() => navigate(ROUTES.IMAGES)} colorScheme="green" size="lg">
+                Índice Multidimensional - Fashion Product Images
+              </Button>
+            </VStack>
+          </CardBody>
+        </Card>
+      </Center>
     </>
   );
 }

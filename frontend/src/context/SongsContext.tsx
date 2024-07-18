@@ -1,15 +1,15 @@
 "use client"
 
 import { searchSong } from "@/api/search";
-import { SearchResult, Song } from "@/api/search/search.model";
+import { SongsSearchResult, Song } from "@/api/search/search.model";
 import { useToast } from "@chakra-ui/react";
 import { createContext, useState } from "react";
 
 
 interface SongsContextProps {
-  search: (query: string, k: number, language: string, use_postgres: boolean) => Promise<SearchResult>;
+  search: (query: string, k: number, language: string, use_postgres: boolean) => Promise<SongsSearchResult>;
   loading: boolean;
-  result: SearchResult;
+  result: SongsSearchResult;
 }
 
 const SongsContext = createContext<SongsContextProps>({
@@ -31,7 +31,7 @@ function SongsProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  const [result, setResult] = useState<SearchResult>({ songs: [], executionTime: 0 });
+  const [result, setResult] = useState<SongsSearchResult>({ songs: [], executionTime: 0 });
   const [loading, setLoading] = useState(false);
   const search = async (query: string, k: number, language: string, use_postgres: boolean) => {
     setLoading(true);

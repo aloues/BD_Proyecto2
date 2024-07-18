@@ -189,3 +189,6 @@ pyrightconfig.json
 
 bsbi_index_en/
 bsbi_index_es/
+
+highD_index/
+rtree_index/
