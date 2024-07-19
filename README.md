@@ -561,16 +561,6 @@ La maldición de la dimensionalidad se refiere a diversos fenómenos que ocurren
 2. **Mayor Complejidad Computacional**: El tiempo y los recursos necesarios para calcular distancias y realizar búsquedas aumentan exponencialmente con la dimensionalidad.
 3. **Esparcimiento de Datos**: Los datos tienden a dispersarse en espacios de alta dimensión, lo que reduce la densidad de los datos y dificulta la formación de clusters significativos.
 
-#### Mitigación de la Maldición de la Dimensionalidad
-
-La maldición de la dimensionalidad se refiere a diversos fenómenos que ocurren cuando se analiza y organiza datos en espacios de alta dimensión. En el contexto de la búsqueda y la indexación de imágenes, estos fenómenos pueden afectar negativamente la eficiencia y la precisión de las búsquedas.
-
-#### Problemas Causados por la Maldición de la Dimensionalidad
-
-1. **Distancias Menos Discriminativas**: A medida que aumenta la dimensionalidad del espacio de características, las distancias entre puntos (imágenes) se vuelven menos discriminativas, lo que dificulta la distinción entre imágenes similares y no similares.
-2. **Mayor Complejidad Computacional**: El tiempo y los recursos necesarios para calcular distancias y realizar búsquedas aumentan exponencialmente con la dimensionalidad.
-3. **Esparcimiento de Datos**: Los datos tienden a dispersarse en espacios de alta dimensión, lo que reduce la densidad de los datos y dificulta la formación de clusters significativos.
-
 #### Solución frente a la Maldición de la Dimensionalidad
 
 Para mitigar los efectos de la maldición de la dimensionalidad, hemos utilizado PCA (Análisis de Componentes Principales). PCA es una técnica de reducción de dimensionalidad que transforma el espacio original de características en un espacio de menor dimensión, preservando la mayor cantidad posible de varianza de los datos originales. 
@@ -647,6 +637,50 @@ A continuación, las capturas de pantallas de otras plataformas que permiten bus
 ![Imagen de la entrada del índice a utilizar](/readme-images/17.png)
 
 Nuestro frontend combina lo mejor de otras implementaciones, combinando la limpieza y minimalismo de Google con lo visual de Spotify. Además, diferente a otras soluciones, no sobrecargamos la interfaz con anuncios o paneles, como en Letras y Lyrics. Conservando lo esencial, la barra de búsqueda. 
+
+## Parte 2: Índice Multidimensional - GUI para Búsquedas de Imágenes
+
+### Descripción de la GUI
+
+La interfaz gráfica de usuario (GUI) para la búsqueda de imágenes está diseñada para ser intuitiva y fácil de usar. Utiliza un diseño minimalista inspirado en los colores y estilos de aplicaciones modernas de búsqueda y comercio electrónico. La funcionalidad principal permite a los usuarios buscar imágenes similares a través de un sistema de indexación de imágenes.
+
+#### Componentes de la GUI
+
+1. **Barra de Herramientas**: Incluye un botón para seleccionar un archivo de imagen, un campo para ingresar el número de resultados deseados (`Top K`), y una selección de configuración del índice como `32000` y `HighD8`.
+
+2. **Área de Visualización de Resultados**: Muestra las imágenes más similares basadas en la consulta. Cada imagen resultante muestra detalles clave como el nombre del producto, el fabricante, el precio, y un puntaje de similitud.
+
+3. **Botón de Búsqueda**: Al hacer clic en este botón después de cargar una imagen, se realiza la búsqueda y se muestran los resultados en el área correspondiente.
+
+### Mini-manual de Usuario
+
+#### Cómo Realizar una Búsqueda de Imágenes
+
+1. **Cargar una Imagen**: Haz clic en el botón `Choose File` y selecciona una imagen de tu dispositivo que deseas usar como consulta.
+
+2. **Configurar la Búsqueda**:
+   - **Número de Resultados**: Ingresa el número deseado de imágenes similares que quieres recuperar en el campo `Top K`.
+   - **Tamaño de la Colección y Dimensionalidad**: Elige el tamaño de la colección (`N`) y la dimensionalidad (`D`) desde los menús desplegables. Estos parámetros afectan la precisión y el tiempo de la búsqueda.
+
+3. **Iniciar la Búsqueda**: Haz clic en el ícono de la lupa para empezar la búsqueda. La consulta puede tardar unos segundos, dependiendo del tamaño de la colección y la dimensionalidad configurada.
+
+4. **Visualizar Resultados**: Observa los resultados en la sección `Top Images`. Cada entrada en los resultados incluye:
+   - **Imagen**: Una miniatura de la imagen.
+   - **Nombre del Producto**: El nombre del producto asociado a la imagen.
+   - **Fabricante**: La marca o fabricante del producto.
+   - **Precio**: Precio del producto.
+   - **Puntuación de Similitud**: Un puntaje que indica cuán similar es la imagen encontrada con respecto a la consulta.
+
+### Capturas de Pantalla
+
+- **Pantalla Principal**: Muestra la interfaz de usuario con campos para cargar la imagen y configurar la búsqueda.
+- **Resultados de la Búsqueda**: Muestra las imágenes que se han encontrado como más similares a la imagen de consulta.
+
+### Consejos de Uso
+
+- **Calidad de la Imagen**: Para mejores resultados, utiliza imágenes con buena resolución y claridad.
+- **Configuraciones del Índice**: Experimenta con diferentes tamaños de colección y dimensionalidades para ver cómo afectan la precisión y la velocidad de las búsquedas.
+
 ## Experimentación
 
 ### Índice multidimensional
