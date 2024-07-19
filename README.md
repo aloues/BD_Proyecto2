@@ -487,6 +487,13 @@ def extract_sift_features(self, image):
 ![Creación del Descriptor SIFT](./readme-images/23.png)
 ### Cómo se realiza el KNN Search
 #### Cómo realiza el Sequential KNN Search:
+El Sequential KNN Search sigue este proceso:
+1. Se recibe la query y se extraen los descriptores SIFT.
+2. Para cada descriptor de la se inicializa un heap vacío. 
+3. Se itera sobre el dataset, obteniendo los descriptores SIFT de cada imagen y se calcula la distancia de cada uno con los descriptores de la consulta, estas se pushean en su respectivo heap.
+4. Una vez iteramos todo el dataset, los heaps cuentan con los top k imágenes de cada descriptor de la consulta. Para obtener el top k imágenes de la consulta como tal, aplicamos un counter de los resultados y le asignamos un score a cada imagen vecina (sobre como funciona el score, se explica más adelante),
+5. Finalmente, retornamos las top k imágenes según el score. 
+
 
 #### Cómo realiza el R-Tree KNN Search: 
 El KNN (K-Nearest Neighbors) Search en un R-Tree sigue este proceso:
@@ -776,3 +783,4 @@ También, podemos hacer una comparación de cada método con el KNN secuencial y
 ![Experimentación](/readme-images/exp2.png)
 
 ### Análisis y Discusión
+En la experimentación, podemos observa que a mayor dimensionalidad, mayor es el tiempo de ejecución. Además que aplicando técnicas de indexación como el R-Tree podemo reducir considerablemente el tiempo de una búsqueda KNN en comparación de una secuencial. Por otro lado, se visualiza que a medida que se reduce la dimensiolidad del índice, se pierden algunas características de búsqueda, sin embargo, los resultados siguen siendo buenos. Finalmente, en términos de uso, se puede decir que si queremos velocidad la mejor opción es el HighD (D = 8), y si buscamos un poco más de fiabilidad podemos usar el D = 16 o D = 32; y si queremos obtener los resultados exactos podemos optar por un R-Tree que es más rápido que un KNN Secuencial y retorna los mismos vecinos.  
