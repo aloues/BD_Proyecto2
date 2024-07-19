@@ -71,7 +71,7 @@ Esta es la clase principal que gestiona la construcción y manejo del índice in
 - **Caché LRU**: Implementación de una caché LRU para almacenar bloques de índice recientemente utilizados y reducir el tiempo de acceso a disco.
 - **Búsqueda Binaria**: Utilización de búsqueda binaria para localizar los bloques relevantes durante las consultas, utilizando una lista de primeras y últimas claves para cada bloque.
 
-#### Flujo del Algoritmo BSBI
+#### Algoritmo BSBI
 
 1. **Construcción de Índices Locales**: Los documentos se procesan en bloques de tamaño fijo. Cada bloque se indexa y almacena en un archivo separado.
 2. **Fusión de Bloques**: Los bloques de índice se fusionan en niveles hasta que solo queda un bloque final.
@@ -416,46 +416,133 @@ La API está configurada utilizando FastAPI para manejar búsquedas en la tabla 
 
 ## Backend: Índice Multidimensional
 
-En esta sección se explicarán los métodos y técnicas utilizados para la creación de un índice multidimensional aplicado a la búsqueda y gestión de imágenes en la base de datos.
+En esta sección se explicarán los métodos y técnicas utilizados para la creación de un índice multidimensional.
 
-### Técnica de Indexación de las Librerías Utilizadas (mejorar)
+### KNN RTree
+El código implementa una estructura KNN (K-Nearest Neighbors) utilizando un árbol R (R-Tree) para indexar y buscar imágenes similares empleando descriptores SIFT (Scale-Invariant Feature Transform). A continuación, se describen las principales librerías utilizadas:
 
-Para la indexación de las imágenes en nuestra base de datos, hemos utilizado técnicas de procesamiento de imágenes y de reducción de dimensionalidad. Las librerías utilizadas incluyen:
+#### Librerías Utilizadas
 
-- **OpenCV**: Para la preprocesamiento y extracción de características de las imágenes.
-- **NumPy**: Para operaciones matemáticas y de manipulación de arrays.
-- **scikit-learn**: Para la implementación de PCA (Análisis de Componentes Principales) para la reducción de dimensionalidad.
-- **Faiss**: Librería de Facebook AI Research para la indexación y búsqueda eficiente en grandes conjuntos de datos de vectores.
+##### rtree
 
-El flujo de trabajo para la indexación incluye la carga de las imágenes, el preprocesamiento (como redimensionamiento y normalización), la extracción de características (por ejemplo, utilizando técnicas de histograma de colores o descriptores de características como SIFT o SURF), y la reducción de dimensionalidad utilizando PCA antes de crear el índice con Faiss.
+* La librería `rtree` se encarga de la indexación mediante un árbol R, que es un índice multidimensional. Esta librería implementa toda la estructura, permitiendo indexar, realizar búsquedas y configurar los parámetros según nuestros requerimientos.
 
-### KNN Search y Range Search
+###### ¿Cómo Funciona?
+El R-Tree es un árbol balanceado que se utiliza para indexar objetos en un espacio multidimensional, permitiendo realizar búsquedas eficientes. Con la librería `rtree`, creamos el índice y le asignamos un nombre para que se guarde en disco. Además, configuramos la dimensión en 128, que corresponde a la dimensión de los descriptores SIFT.
 
-Para la búsqueda de imágenes similares en la base de datos, hemos implementado dos técnicas principales: KNN (K-Nearest Neighbors) Search y Range Search.
+```python
+p = index.Property()
+p.dimension = 128  
+self.idx = index.Index(index_path, properties=p)
+```
 
-#### KNN Search (se puede mejorar y adjuntar codigo)
+![rtree](https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/RTree-Visualization-3D.svg/1920px-RTree-Visualization-3D.svg.png)
 
-El KNN Search (búsqueda de los k vecinos más cercanos) es una técnica que permite encontrar las k imágenes más similares a una imagen de consulta en términos de distancia en un espacio de características. En nuestro caso, las características de las imágenes son representadas como vectores, y la búsqueda se realiza en un espacio de características de menor dimensión obtenido después de aplicar PCA.
+![rtree](https://drek4537l1klr.cloudfront.net/larocca/v-14/Figures/10_04.png)
 
-Pasos del KNN Search:
+El R-Tree permite indexar elementos, en este caso, descriptores de imágenes. Agrupa estos puntos en rectángulos conocidos como MBR (Minimum Bounding Rectangles). Cada rectángulo es un nodo, donde los nodos internos contienen otros nodos, y las hojas contienen los elementos finales.
 
-1. **Extracción de Características**: Se extraen las características de la imagen de consulta.
-2. **Reducción de Dimensionalidad**: Se aplica PCA a las características de la imagen de consulta para reducir su dimensionalidad.
-3. **Búsqueda**: Se utiliza Faiss para buscar las k imágenes más cercanas en el índice preconstruido.
+Cuando un nodo se llena, se realiza una división (split), creando dos MBR lo más alejados posible entre sí dentro de los valores del nodo. Los elementos del nodo original se redistribuyen en los nuevos MBR y se mantiene el balance del árbol.
 
-Faiss permite realizar esta búsqueda de manera eficiente incluso en grandes conjuntos de datos, utilizando estructuras de datos optimizadas y técnicas de búsqueda aproximada.
+![rtree](./readme-images/18.png)
 
-#### Range Search (se puede mejorar y adjuntar codigo)
+Una vez que nuestros elementos están indexados, podemos realizar consultas. Sin embargo, esto se explicará en detalle en la sección sobre cómo se realiza la búsqueda KNN (K-Nearest Neighbors).
 
-El Range Search (búsqueda por rango) es una técnica que permite encontrar todas las imágenes en la base de datos que se encuentran dentro de una cierta distancia de la imagen de consulta. Esta técnica es útil cuando se desea recuperar todas las imágenes que son suficientemente similares a la imagen de consulta, en lugar de un número fijo de resultados.
+#### cv2 (OpenCV)
+La librería OpenCV (`cv2`) se utiliza para el procesamiento de imágenes, en este caso para la extracción de características SIFT. El algoritmo detecta puntos clave en imágenes que son puntos invariantes a la escala o rotación.  En el código se implementa durante la construcción del índice RTree, obteniendo los descriptores locales de cada imagen.
 
-Pasos del Range Search:
+``` python
+def extract_sift_features(self, image):
+    sift = cv2.SIFT_create(nfeatures=self.nfeatures)
+    keypoints, descriptors = sift.detectAndCompute(image, None)
+    return keypoints, descriptors
+```
 
-1. **Extracción de Características**: Similar al KNN Search, se extraen las características de la imagen de consulta.
-2. **Reducción de Dimensionalidad**: Se aplica PCA a las características de la imagen de consulta.
-3. **Búsqueda**: Se utiliza Faiss para buscar todas las imágenes que se encuentran dentro de un radio especificado alrededor de la imagen de consulta en el espacio de características.
+###### ¿Cómo Funciona? - Proceso de Extracción de Keypoints y Descriptors
 
-Faiss permite especificar un radio de búsqueda y devuelve todas las imágenes cuyo vector de características se encuentra dentro de ese radio en el espacio reducido.
+
+1.  **Aplicación de Diferencias Gaussianas**: Se aplica un desenfoque gaussiano a la imagen con diferentes magnitudes.
+2. **Restar Imágenes**: Se restan las imágenes resultantes del desenfoque gaussiano entre sí, obteniendo la diferencia de la imagen en diferentes niveles de desenfoque.
+3. **Identificación de Extremos Locales**: Se buscan los puntos extremos locales en las imágenes resultantes de las diferencias gaussianas. Estos puntos extremos son los keypoints.
+![Identificación de Extremos Locales SIFT](./readme-images/24.png)
+
+4. **Escalas y Transformaciones**: Este proceso no solo se realiza para la imagen original, sino que se aplica en una pirámide de escalas. Esto implica transformar la imagen en diferentes niveles de escala, rotación e iluminación, asegurando que los keypoints encontrados sean invariantes a estas transformaciones.
+![Escalas y Transformaciones SIFT](./readme-images/19.png)
+
+**Descripción de los Keypoints:**
+1. **Análisis de Vecinos del Keypoint**: Se analiza el área vecina alrededor de cada keypoint.
+2. **División en Regiones**: El área vecina se divide en pequeñas regiones.
+![División en Regiones SIFT](./readme-images/20.png)
+
+3. **Cálculo de Gradientes**: Se calcula el gradiente en cada una de estas pequeñas regiones. Los gradientes se utilizan porque preservan mejor los cambios a pesar de variaciones en la iluminación o el punto de vista.
+![Cálculo de Gradientes SIFT](./readme-images/21.png)
+
+4. **Organización en Histogramas**: Los gradientes calculados se organizan en histogramas. Para cada keypoint, en una región de 4x4 alrededor del punto clave, se calculan 16 histogramas en total.
+
+5. **Discretización en Orientaciones**: Cada histograma se discretiza en 8 orientaciones (cada una de 45 grados), resultando en 128 valores (16 histogramas x 8 orientaciones) que describen el keypoint.
+![Discretización en Orientaciones SIFT](./readme-images/22.png)
+
+6. **Creación del Descriptor**: Finalmente, se crea un vector de 128 elementos para cada keypoint. Este vector es el descriptor del keypoint.
+
+![Creación del Descriptor SIFT](./readme-images/23.png)
+### Cómo se realiza el KNN Search
+#### Cómo realiza el Sequential KNN Search:
+
+#### Cómo realiza el R-Tree KNN Search: 
+El KNN (K-Nearest Neighbors) Search en un R-Tree sigue este proceso:
+1. Se inicia la búsqueda con una distancia infinita, ya que no se ha hecho ninguna comparación aún. 
+2. Se comienza a explorar por el nodo raíz del R-Tree y se usa una cola de prioridad para gestionar los nodos a explorar.
+3. Se extrae el nodo más cercano de la cola de prioridad y se realiza una búsqueda en profundidad a través de sus hijos.
+4. Si el nodo es una hoja, se calcula la distancia entre la consulta y cada descriptor en la hoja.
+5. Si el nodo es interno, se calcula la distancia entre la consulta y el MBR de cada hijo, añadiendo los hijos a la cola de prioridad.
+6. Se mantiene una cola de prioridad de los k vecinos más cercanos encontrados hasta el momento y se actualiza mientras se explora.
+7. Si un MBR está más lejos que la distancia al k-ésimo vecino más cercano, no se explora.
+8. La búsqueda concluye cuando se han encontrado los k vecinos más cercanos y no hay más nodos por explorar. 
+
+Este proceso se realiza para cada descriptor de la imagen consultada.
+
+**Implementación en el Código**
+En el código proporcionado, este proceso se aplica para cada descriptor de la imagen consultada mediante el método `knn_search_w_score`:
+
+``` python
+def knn_search_w_score(self, descriptor):
+    nearest = list(self.idx.nearest(descriptor, self.k))
+    score_results = []
+
+    for i, result in enumerate(nearest):
+        weight = 1.0 / (i + 1)
+        image_id = self.get_image_id_from_index_id(result)
+        score_results.append((image_id, weight))
+
+    return score_results
+```
+
+#### Filtrado y Puntaje de Imágenes
+Una vez obtenidos los k descriptores más cercanos para cada descriptor de la imagen consultada, es necesario identificar cuáles son las k imágenes más similares a la imagen consultada. Esto se realiza de la siguiente manera:
+
+1. **Asignación de Puntajes**:
+    *  A las imágenes encontradas se les asigna un puntaje basado en la posición en la que se retornaron sus descriptores cercanos.
+    * Los descriptores más cercanos reciben un puntaje más alto.
+2. **Acumulación de Puntajes**:
+    * Se acumulan los puntajes para cada imagen encontrada.
+3. **Selección de Imágenes**:
+    * Finalmente, se seleccionan las k imágenes con los puntajes más altos como las más similares a la imagen consultada.
+
+``` python
+ def query(self, image):
+    keypoints, descriptors = self.extract_sift_features(image)
+    image_scores = Counter()
+
+    for descriptor in tqdm(descriptors, total=len(descriptors), desc='KnnRTree (query): '):
+      score_results = self.knn_search_w_score(descriptor)
+
+      for image_id, weight in score_results:
+        image_scores[image_id] += weight
+
+    top_k_images = image_scores.most_common(self.k)
+
+    return top_k_images
+```
 
 ### Análisis de la Maldición de la Dimensionalidad y Cómo Mitigarlo
 
@@ -555,6 +642,137 @@ A continuación, las capturas de pantallas de otras plataformas que permiten bus
 Nuestro frontend combina lo mejor de otras implementaciones, combinando la limpieza y minimalismo de Google con lo visual de Spotify. Además, diferente a otras soluciones, no sobrecargamos la interfaz con anuncios o paneles, como en Letras y Lyrics. Conservando lo esencial, la barra de búsqueda. 
 ## Experimentación
 
-### Tablas y Gráficos de los Resultados Experimentales
+### Índice multidimensional
+
+Para el índice multidimensional comparamos el KKN Sequential con el KNN-Rtree (D = 128) y el HighD (D = [32, 16, 8]).
+
+Estos fueron los resultados según el tamaño de la colección (N):
+
+**N = 1000**
+KNN Secuencial y KNN-RTree
+![Experimentación](/readme-images/1001.png)
+
+HighD (D = 32)
+![Experimentación](/readme-images/1002.png)
+
+HighD (D = 16)
+![Experimentación](/readme-images/1003.png)
+
+HighD (D = 8)
+![Experimentación](/readme-images/1004.png)
+
+**N = 2000**
+KNN Secuencial y KNN-RTree
+![Experimentación](/readme-images/2001.png)
+
+HighD (D = 32)
+![Experimentación](/readme-images/2002.png)
+
+HighD (D = 16)
+![Experimentación](/readme-images/2003.png)
+
+HighD (D = 8)
+![Experimentación](/readme-images/2004.png)
+
+
+**N = 4000**
+KNN Secuencial y KNN-RTree
+![Experimentación](/readme-images/4001.png)
+
+HighD (D = 32)
+![Experimentación](/readme-images/4002.png)
+
+HighD (D = 16)
+![Experimentación](/readme-images/4003.png)
+
+HighD (D = 8)
+![Experimentación](/readme-images/4004.png)
+
+**N = 8000**
+KNN Secuencial y KNN-RTree
+![Experimentación](/readme-images/8001.png)
+
+HighD (D = 32)
+![Experimentación](/readme-images/8002.png)
+
+HighD (D = 16)
+![Experimentación](/readme-images/8003.png)
+
+HighD (D = 8)
+![Experimentación](/readme-images/8004.png)
+
+**N = 16000**
+KNN Secuencial y KNN-RTree
+![Experimentación](/readme-images/16001.png)
+
+HighD (D = 32)
+![Experimentación](/readme-images/16002.png)
+
+HighD (D = 16)
+![Experimentación](/readme-images/16003.png)
+
+HighD (D = 8)
+![Experimentación](/readme-images/16004.png)
+
+
+**N = 32000**
+KNN Secuencial y KNN-RTree
+![Experimentación](/readme-images/32001.png)
+
+HighD (D = 32)
+![Experimentación](/readme-images/32002.png)
+
+HighD (D = 16)
+![Experimentación](/readme-images/32003.png)
+
+HighD (D = 8)
+![Experimentación](/readme-images/32004.png)
+
+
+**N = 44000**
+KNN Secuencial y KNN-RTree
+![Experimentación](/readme-images/44001.png)
+
+HighD (D = 32)
+![Experimentación](/readme-images/44002.png)
+
+HighD (D = 16)
+![Experimentación](/readme-images/44003.png)
+
+HighD (D = 8)
+![Experimentación](/readme-images/44004.png)
+
+**Resultados de Tiempos de Ejecución (s) - Query**
+
+| Tamaño colección | KNN-Secuencial | KNN-RTree (128d) | HighD (32d) | HighD (16d) | HighD (8d) |
+|------------------|----------------|------------------|-------------|-------------|------------|
+| 1000             | 7.55           | 0.91             | 0.31        | 0.14        | 0.02       |
+| 2000             | 14.66          | 1.73             | 0.61        | 0.21        | 0.03       |
+| 4000             | 28.37          | 3.75             | 1.23        | 0.39        | 0.04       |
+| 8000             | 57.78          | 8.03             | 2.53        | 0.68        | 0.07       |
+| 16000            | 113.92         | 16.57            | 5.51        | 1.41        | 0.11       |
+| 32000            | 226.67         | 37.04            | 12.66       | 3.15        | 0.25       |
+| 44000            | 326.41         | 77.58            | 16.76       | 4.24        | 0.21       |
+
+
+
+En la gráfica se puede ver la comparación más clara:
+![Experimentación](/readme-images/exp1.png)
+
+
+También, podemos hacer una comparación de cada método con el KNN secuencial y así determinar cuántas veces más rápido son:
+
+| Tamaño colección | KNN-RTree (128d) | HighD (32d) | HighD (16d) | HighD (8d) |
+|------------------|------------------|-------------|-------------|------------|
+| 1000             | x8               | x24         | x54         | x378       |
+| 2000             | x8               | x24         | x70         | x489       |
+| 4000             | x8               | x23         | x73         | x709       |
+| 8000             | x7               | x23         | x85         | x825       |
+| 16000            | x7               | x21         | x81         | x1036      |
+| 32000            | x6               | x18         | x72         | x907       |
+| 44000            | x3               | x14         | x53         | x1079      |
+
+
+![Experimentación](/readme-images/exp2.png)
 
 ### Análisis y Discusión
